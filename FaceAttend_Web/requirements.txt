@@ -9,6 +9,9 @@ mysql-connector-python>=8.3.0
 # Computer Vision (must be contrib for cv2.face LBPH)
 opencv-contrib-python>=4.8.0
 
+# For headless environments (like servers without GUI)
+opencv-python-headless>=4.8.0
+
 # Image processing
 Pillow>=10.0.0
 
