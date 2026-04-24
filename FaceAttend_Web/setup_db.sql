@@ -1,50 +1,36 @@
 -- ═══════════════════════════════════════════════════════════════
---  FaceAttend Pro  |  MySQL Database Setup Script
---  Run once:  mysql -u root -p < setup_db.sql
+--  FaceAttend Pro  |  PostgreSQL Database Setup
 -- ═══════════════════════════════════════════════════════════════
 
--- Create the database
-CREATE DATABASE IF NOT EXISTS faceattend
-    CHARACTER SET utf8mb4
-    COLLATE utf8mb4_unicode_ci;
-
-USE faceattend;
-
--- ── Students table ───────────────────────────────────────────────
+-- ── Students table ─────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS students (
-    id          INT           NOT NULL,
-    name        VARCHAR(120)  NOT NULL,
-    roll        VARCHAR(30)   NOT NULL UNIQUE,
-    registered  DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    id          SERIAL PRIMARY KEY,
+    name        TEXT NOT NULL,
+    roll        TEXT UNIQUE NOT NULL,
+    registered  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
 
-    PRIMARY KEY (id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
-
--- ── Attendance table ─────────────────────────────────────────────
---   One row per student per day (UNIQUE constraint prevents duplicates)
+-- ── Attendance table ───────────────────────────────────────────
+-- One row per student per day (prevents duplicates)
 CREATE TABLE IF NOT EXISTS attendance (
-    id          INT           NOT NULL AUTO_INCREMENT,
-    student_id  INT           NOT NULL,
-    name        VARCHAR(120)  NOT NULL,
-    time        TIME          NOT NULL,
-    date        DATE          NOT NULL,
-    created_at  DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    id          SERIAL PRIMARY KEY,
+    student_id  INT NOT NULL,
+    name        TEXT NOT NULL,
+    time        TIME NOT NULL,
+    date        DATE NOT NULL,
+    created_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
-    PRIMARY KEY (id),
-    UNIQUE KEY  uq_student_day (student_id, date),
-    FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    CONSTRAINT uq_student_day UNIQUE (student_id, date),
+    CONSTRAINT fk_student FOREIGN KEY (student_id)
+        REFERENCES students(id) ON DELETE CASCADE
+);
 
-
--- ── Indexes for fast queries ─────────────────────────────────────
+-- ── Indexes for performance ─────────────────────────────────────
 CREATE INDEX IF NOT EXISTS idx_attendance_date
     ON attendance (date);
 
 CREATE INDEX IF NOT EXISTS idx_attendance_student
     ON attendance (student_id);
 
-
--- ── Verify ───────────────────────────────────────────────────────
+-- ── Verify ─────────────────────────────────────────────────────
 SELECT 'Database setup complete!' AS status;
-SHOW TABLES;

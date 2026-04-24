@@ -20,3 +20,6 @@ numpy>=1.24.0
 
 # For production deployment
 gunicorn>=20.1.0
+
+#Data base connection pooling
+psycopg2-binary>=2.9.0

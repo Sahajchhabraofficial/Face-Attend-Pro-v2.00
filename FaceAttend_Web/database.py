@@ -9,11 +9,31 @@ Setup:     mysql -u root -p < setup_db.sql
 Config:    edit config.py with your credentials
 """
 
-import mysql.connector
-from mysql.connector import pooling
-from datetime import date, datetime
-from config import DB_CONFIG, POOL_SIZE
+import os
+import psycopg2
+from psycopg2.extras import RealDictCursor
 
+DATABASE_URL = os.getenv("DATABASE_URL")
+
+def _conn():
+    return psycopg2.connect(DATABASE_URL)
+
+def _exec(sql, params=(), fetch="none"):
+    con = _conn()
+    cur = con.cursor(cursor_factory=RealDictCursor)
+    try:
+        cur.execute(sql, params)
+
+        if fetch == "one":
+            return cur.fetchone()
+        if fetch == "all":
+            return cur.fetchall()
+
+        con.commit()
+        return True
+    finally:
+        cur.close()
+        con.close()
 
 # ════════════════════════════════════════════════════════════════════
 #  CONNECTION POOL  (shared by both classes)
