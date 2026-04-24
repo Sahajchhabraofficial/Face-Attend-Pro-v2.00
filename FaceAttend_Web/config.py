@@ -6,10 +6,10 @@
 import os
 
 DB_CONFIG = {
-    "host": os.getenv("dpg-d7lm0vu8bjmc73afagng-a"),
-    "user": os.getenv("postgresql_cn6z_user"),
-    "password": os.getenv("n7pt3bNZ2R9BdAOudlEtRYtxtRwxQhdh"),
-    "database": os.getenv("postgresql_cn6z"),
+    "host": "dpg-d7lm0vu8bjmc73afagng-a",
+    "user": "postgresql_cn6z_user",
+    "password": "n7pt3bNZ2R9BdAOudlEtRYtxtRwxQhdh",
+    "database": "postgresql_cn6z",
     "port":5432
 }
 
