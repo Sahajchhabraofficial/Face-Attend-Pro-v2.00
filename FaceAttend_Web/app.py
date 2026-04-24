@@ -32,7 +32,7 @@ try:
     sdb.total()
     print("✅ MySQL connected successfully.")
 except Exception as e:
-    print(f"⚠️ MySQL connection failed: {e}")
+    print(f"⚠️ Database connection failed: {e}")
     
     # DON'T exit — just keep app running
     sdb = None
