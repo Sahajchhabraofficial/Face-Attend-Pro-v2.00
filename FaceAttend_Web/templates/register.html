@@ -1,0 +1,155 @@
+{% extends "base.html" %}
+{% block title %}Register Student — FaceAttend Pro{% endblock %}
+{% block page_icon %}👤{% endblock %}
+{% block page_title %}Register New Student{% endblock %}
+
+{% block content %}
+
+<!-- Step indicators -->
+<div class="steps" style="max-width:520px;margin-bottom:26px;">
+  <div class="step active" data-step="1">
+    <div class="step-num">1</div>
+    <span class="step-label">Student Info</span>
+  </div>
+  <div class="step-line"></div>
+  <div class="step" data-step="2">
+    <div class="step-num">2</div>
+    <span class="step-label">Capture Face</span>
+  </div>
+  <div class="step-line"></div>
+  <div class="step" data-step="3">
+    <div class="step-num">3</div>
+    <span class="step-label">Confirm</span>
+  </div>
+  <div class="step-line"></div>
+  <div class="step" data-step="4">
+    <div class="step-num">✓</div>
+    <span class="step-label">Done!</span>
+  </div>
+</div>
+
+<!-- STEP 1 — Info form -->
+<div class="step-panel" data-step="1" style="max-width:440px;">
+  <div class="card">
+    <div class="card-head">
+      <span class="card-title">📝 Student Information</span>
+    </div>
+    <div class="card-body">
+      <div class="form-group">
+        <label class="form-label">Full Name</label>
+        <input type="text" id="name-input" class="form-control"
+               placeholder="e.g. Arjun Sharma">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Roll Number</label>
+        <input type="text" id="roll-input" class="form-control"
+               placeholder="e.g. CS2024042">
+      </div>
+      <button class="btn btn-primary w-100" id="start-cap-btn"
+              style="margin-top:8px;">
+        📷 Continue to Face Capture
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- STEP 2 — Capture -->
+<div class="step-panel" data-step="2" style="display:none;">
+  <div class="reg-grid">
+    <!-- Left: controls -->
+    <div>
+      <div class="card" style="margin-bottom:14px;">
+        <div class="card-head">
+          <span class="card-title">🎯 Capture Progress</span>
+        </div>
+        <div class="card-body">
+          <div class="capture-status">
+            <div class="cs-label">
+              <span>Face samples</span>
+              <span><span id="prog-count">0</span> / 30</span>
+            </div>
+            <div class="progress-wrap">
+              <div class="progress-bar" id="prog-bar" style="width:0%"></div>
+            </div>
+            <p id="prog-label" class="text-sub mt-1" style="font-size:12px;">
+              0 / 30 samples captured
+            </p>
+          </div>
+          <div class="divider"></div>
+          <button class="btn btn-primary w-100" id="cap-btn">▶ Start Capture</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-body">
+          <p style="font-size:12.5px;color:var(--sub);line-height:1.6;">
+            💡 <strong style="color:var(--txt)">Tips for best results:</strong><br>
+            • Look directly at the camera<br>
+            • Slowly move head left / right / up<br>
+            • Ensure good lighting on your face<br>
+            • Remove sunglasses if wearing
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right: camera -->
+    <div>
+      <div class="cam-wrapper" style="margin-bottom:14px;">
+        <div class="cam-corner tl"></div>
+        <div class="cam-corner tr"></div>
+        <div class="cam-corner bl"></div>
+        <div class="cam-corner br"></div>
+        <video id="reg-video" autoplay muted playsinline
+               style="width:100%;aspect-ratio:4/3;object-fit:cover;display:block;background:#020208;"></video>
+        <canvas id="reg-canvas"
+                style="position:absolute;top:0;left:0;width:100%;height:100%;"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- STEP 3 — Confirm -->
+<div class="step-panel" data-step="3" style="display:none;max-width:440px;">
+  <div class="card">
+    <div class="card-head">
+      <span class="card-title">✅ Confirm & Train Model</span>
+    </div>
+    <div class="card-body" style="text-align:center;">
+      <div style="font-size:52px;margin-bottom:16px;">🧠</div>
+      <p style="margin-bottom:6px;font-size:15px;">30 face samples captured!</p>
+      <p class="text-sub" style="margin-bottom:22px;font-size:13px;">
+        Click below to register the student and retrain the face recognition model.
+      </p>
+      <button class="btn btn-primary w-100" id="submit-btn" disabled>
+        ✅ Complete Registration
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- STEP 4 — Success -->
+<div class="step-panel" data-step="4" style="display:none;max-width:440px;">
+  <div class="card" style="border-color:rgba(0,255,170,.3);">
+    <div class="card-body" style="text-align:center;padding:36px;">
+      <div style="font-size:56px;margin-bottom:16px;">🎉</div>
+      <h2 style="font-family:'Rajdhani',sans-serif;font-size:22px;color:var(--green);margin-bottom:8px;">
+        Registered Successfully!
+      </h2>
+      <p class="text-sub" style="margin-bottom:22px;font-size:14px;">
+        <strong id="success-name" style="color:var(--txt)"></strong>
+        has been added and the model is trained.
+      </p>
+      <div class="flex-row" style="justify-content:center;gap:12px;">
+        <button class="btn btn-ghost" id="reg-another-btn">➕ Register Another</button>
+        <a href="/students" class="btn btn-primary">👥 View Students</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/register.js') }}"></script>
+{% endblock %}

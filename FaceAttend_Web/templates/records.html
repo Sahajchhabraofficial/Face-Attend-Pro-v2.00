@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}Records — FaceAttend Pro{% endblock %}
+{% block page_icon %}📋{% endblock %}
+{% block page_title %}Attendance Records{% endblock %}
+
+{% block content %}
+
+<div class="card">
+  <!-- Filter bar -->
+  <div class="filter-bar">
+    <span style="font-size:13px;color:var(--sub);">Date:</span>
+    <form method="get" action="/records" style="display:flex;gap:10px;align-items:center;">
+      <select name="date" class="form-control" style="width:auto;padding:6px 12px;"
+              onchange="this.form.submit()">
+        {% for d in dates %}
+        <option value="{{ d }}" {% if d == selected %}selected{% endif %}>{{ d }}</option>
+        {% endfor %}
+        {% if not dates %}
+        <option>— No records —</option>
+        {% endif %}
+      </select>
+      <button type="submit" class="btn btn-ghost btn-sm">🔄 Load</button>
+    </form>
+    <span class="record-count">{{ records|length }} record(s)</span>
+  </div>
+
+  {% if records %}
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Student ID</th>
+          <th>Name</th>
+          <th>Time</th>
+          <th>Date</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in records %}
+        <tr>
+          <td style="color:var(--sub);">{{ loop.index }}</td>
+          <td><span class="badge badge-cyan">{{ row[0] }}</span></td>
+          <td><strong>{{ row[1] }}</strong></td>
+          <td style="color:var(--amber);">{{ row[2] }}</td>
+          <td style="color:var(--sub);">{{ row[3] }}</td>
+          <td><span class="badge badge-green">✓ Present</span></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty-state">
+    <span class="es-icon">📭</span>
+    <p>{% if selected %}No records for {{ selected }}.{% else %}No attendance records found.{% endif %}</p>
+  </div>
+  {% endif %}
+</div>
+
+{% endblock %}

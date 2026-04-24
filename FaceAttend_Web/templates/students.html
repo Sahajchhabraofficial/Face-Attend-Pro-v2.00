@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}Students — FaceAttend Pro{% endblock %}
+{% block page_icon %}👥{% endblock %}
+{% block page_title %}Registered Students{% endblock %}
+
+{% block content %}
+
+<div class="section-header">
+  <div class="section-title">
+    All Students
+    <span class="badge badge-cyan">{{ students|length }}</span>
+  </div>
+  <a href="/register" class="btn btn-primary btn-sm">➕ Add Student</a>
+</div>
+
+<div class="card">
+  {% if students %}
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>ID</th>
+          <th>Full Name</th>
+          <th>Roll Number</th>
+          <th>Registered On</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for sid, s in students.items() %}
+        <tr>
+          <td style="color:var(--sub);">{{ loop.index }}</td>
+          <td><span class="badge badge-cyan">{{ sid }}</span></td>
+          <td><strong>{{ s.name }}</strong></td>
+          <td style="font-family:monospace;color:var(--cyan);">{{ s.roll }}</td>
+          <td style="color:var(--sub);">{{ s.registered[:10] if s.registered else '—' }}</td>
+          <td><span class="badge badge-green">✓ Active</span></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty-state">
+    <span class="es-icon">👥</span>
+    <p>No students registered yet.
+       <a href="/register" style="color:var(--cyan)">Register the first student →</a>
+    </p>
+  </div>
+  {% endif %}
+</div>
+
+{% endblock %}

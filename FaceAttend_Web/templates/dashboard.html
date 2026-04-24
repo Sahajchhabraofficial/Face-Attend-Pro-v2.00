@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — FaceAttend Pro{% endblock %}
+{% block page_icon %}📊{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+
+{% block content %}
+
+<!-- Stat Cards -->
+<div class="stats-grid">
+  <div class="stat-card cyan">
+    <span class="stat-icon">👥</span>
+    <span class="stat-value" data-count="{{ total }}">{{ total }}</span>
+    <span class="stat-label">Total Students</span>
+  </div>
+  <div class="stat-card green">
+    <span class="stat-icon">✅</span>
+    <span class="stat-value" data-count="{{ present }}">{{ present }}</span>
+    <span class="stat-label">Present Today</span>
+  </div>
+  <div class="stat-card red">
+    <span class="stat-icon">❌</span>
+    <span class="stat-value" data-count="{{ absent }}">{{ absent }}</span>
+    <span class="stat-label">Absent Today</span>
+  </div>
+  <div class="stat-card amber">
+    <span class="stat-icon">📈</span>
+    <span class="stat-value">{{ rate }}<small style="font-size:18px">%</small></span>
+    <span class="stat-label">Attendance Rate</span>
+  </div>
+</div>
+
+<!-- Today's Log -->
+<div class="section-header">
+  <div class="section-title">📋 Today's Attendance Log
+    <span class="badge badge-cyan">{{ today }}</span>
+  </div>
+  <a href="/attendance" class="btn btn-primary btn-sm">📷 Take Attendance</a>
+</div>
+
+<div class="card">
+  {% if records %}
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Student ID</th>
+          <th>Name</th>
+          <th>Time</th>
+          <th>Date</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in records %}
+        <tr>
+          <td style="color:var(--sub)">{{ loop.index }}</td>
+          <td>{{ row[0] }}</td>
+          <td><strong>{{ row[1] }}</strong></td>
+          <td>{{ row[2] }}</td>
+          <td>{{ row[3] }}</td>
+          <td><span class="badge badge-green">✓ Present</span></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty-state">
+    <span class="es-icon">📭</span>
+    <p>No attendance recorded today. <a href="/attendance" style="color:var(--cyan)">Start now →</a></p>
+  </div>
+  {% endif %}
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Auto-refresh stats every 15s
+setInterval(async () => {
+  const d = await getJSON('/api/stats');
+  // Quietly update (no animation on refresh)
+}, 15000);
+</script>
+{% endblock %}

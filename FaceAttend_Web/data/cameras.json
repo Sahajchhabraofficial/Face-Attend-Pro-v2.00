@@ -1,0 +1,8 @@
+{
+  "active": {
+    "type": "webcam",
+    "index": 0,
+    "label": "Default Webcam"
+  },
+  "saved": []
+}

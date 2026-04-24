@@ -1,0 +1,264 @@
+{% extends "base.html" %}
+{% block title %}Camera Setup — FaceAttend Pro{% endblock %}
+{% block page_icon %}📹{% endblock %}
+{% block page_title %}Camera Setup{% endblock %}
+
+{% block content %}
+<div class="grid-2">
+
+  <!-- LEFT: Saved + Add -->
+  <div>
+    <!-- Active camera -->
+    <div class="card mb-2" style="margin-bottom:14px;border-color:rgba(0,255,170,.25);">
+      <div class="card-head">
+        <span class="card-title">🟢 Active Camera</span>
+      </div>
+      <div class="card-body" id="active-cam-body">
+        <div style="display:flex;align-items:center;gap:12px;">
+          <span style="font-size:28px;">{{ '📹' if active.type == 'cctv' else '💻' }}</span>
+          <div>
+            <div style="font-weight:600;color:var(--green);font-size:15px;">{{ active.label }}</div>
+            <div style="font-size:12px;color:var(--sub);">
+              {{ active.url if active.type == 'cctv' else 'Index ' + (active.index|string) }}
+            </div>
+          </div>
+          <span class="badge badge-green" style="margin-left:auto;">✓ Active</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Saved cameras list -->
+    <div class="card mb-2" style="margin-bottom:14px;">
+      <div class="card-head">
+        <span class="card-title">💾 Saved Cameras</span>
+        <button class="btn btn-ghost btn-sm" onclick="detectWebcams()">🔍 Scan Webcams</button>
+      </div>
+      <div class="card-body" id="cam-list-wrap">
+        {% if saved %}
+        <div class="cam-list" id="cam-list">
+          {% for cam in saved %}
+          <div class="cam-item {{ 'active-cam' if cam.label == active.label else '' }}"
+               id="cam-item-{{ loop.index }}">
+            <span class="ci-icon">{{ '📹' if cam.type == 'cctv' else '💻' }}</span>
+            <div class="ci-info">
+              <div class="ci-label">{{ cam.label }}
+                {% if cam.label == active.label %}
+                  <span class="badge badge-green" style="margin-left:6px;">Active</span>
+                {% endif %}
+              </div>
+              <div class="ci-url">{{ cam.url if cam.type == 'cctv' else 'Webcam Index ' + (cam.index|string) }}</div>
+            </div>
+            <div class="ci-actions">
+              <button class="btn btn-success btn-sm"
+                      onclick="setActive({{ cam|tojson }})">Use</button>
+              <button class="btn btn-ghost btn-sm"
+                      onclick="testCam({{ cam|tojson }})">Test</button>
+              <button class="btn btn-danger btn-sm"
+                      onclick="deleteCam('{{ cam.label }}')">🗑</button>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty-state" id="cam-list">
+          <span class="es-icon" style="font-size:32px;">📹</span>
+          <p style="font-size:13px;">No saved cameras. Add one below or scan webcams.</p>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Add CCTV -->
+    <div class="card">
+      <div class="card-head">
+        <span class="card-title">📡 Add CCTV / IP Camera</span>
+      </div>
+      <div class="card-body">
+        <div class="form-group">
+          <label class="form-label">Camera Label</label>
+          <input type="text" id="cctv-label" class="form-control"
+                 placeholder="e.g. Classroom Cam">
+        </div>
+        <div class="form-group">
+          <label class="form-label">RTSP URL</label>
+          <input type="text" id="cctv-url" class="form-control"
+                 placeholder="rtsp://user:pass@192.168.1.64:554/stream">
+        </div>
+        <p id="add-cctv-status" style="font-size:12px;margin-bottom:10px;"></p>
+        <button class="btn btn-primary w-100" onclick="addCCTV()">
+          ➕ Add CCTV Camera
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT: Test preview -->
+  <div>
+    <div class="card">
+      <div class="card-head">
+        <span class="card-title">🔬 Test & Preview</span>
+      </div>
+      <div class="card-body">
+        <div class="form-group">
+          <label class="form-label">Source (webcam index or RTSP URL)</label>
+          <input type="text" id="test-src" class="form-control"
+                 placeholder="0  or  rtsp://...">
+        </div>
+        <div class="flex-row" style="margin-bottom:14px;">
+          <button class="btn btn-success" id="preview-start-btn" onclick="startPreview()">
+            ▶ Preview
+          </button>
+          <button class="btn btn-danger" id="preview-stop-btn" onclick="stopPreview()" disabled>
+            ⏹ Stop
+          </button>
+          <button class="btn btn-primary" id="use-tested-btn" onclick="useTestedCam()" disabled>
+            ✅ Set Active
+          </button>
+        </div>
+
+        <!-- Webcam preview via browser -->
+        <div class="cam-wrapper" id="preview-wrapper">
+          <div class="cam-corner tl"></div>
+          <div class="cam-corner tr"></div>
+          <div class="cam-corner bl"></div>
+          <div class="cam-corner br"></div>
+          <video id="preview-video" autoplay muted playsinline
+                 style="width:100%;aspect-ratio:16/9;object-fit:cover;display:none;background:#020208;"></video>
+          <!-- CCTV preview (server-side MJPEG) -->
+          <img id="preview-cctv" src=""
+               style="width:100%;aspect-ratio:16/9;object-fit:cover;display:none;background:#020208;">
+          <div class="cam-placeholder" id="preview-placeholder">
+            <span class="ph-icon">🔬</span>
+            <p>Enter source and click Preview</p>
+          </div>
+        </div>
+
+        <p id="preview-status" style="font-size:12px;color:var(--sub);margin-top:10px;"></p>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let previewStream = null;
+let testedCam = null;
+
+// ── Set active ─────────────────────────────────────────────────────
+async function setActive(cam) {
+  await postJSON('/api/cameras/set_active', cam);
+  toast(`✅ ${cam.label} set as active camera!`, 'success');
+  setTimeout(() => location.reload(), 800);
+}
+
+// ── Delete ─────────────────────────────────────────────────────────
+async function deleteCam(label) {
+  if (!confirm(`Delete "${label}"?`)) return;
+  await postJSON('/api/cameras/delete', { label });
+  toast('Camera removed.', 'info');
+  setTimeout(() => location.reload(), 600);
+}
+
+// ── Add CCTV ──────────────────────────────────────────────────────
+async function addCCTV() {
+  const label = document.getElementById('cctv-label').value.trim();
+  const url   = document.getElementById('cctv-url').value.trim();
+  const st    = document.getElementById('add-cctv-status');
+
+  if (!label || !url) { st.textContent = '⚠ Fill both fields.'; st.style.color='var(--amber)'; return; }
+  if (!url.startsWith('rtsp://') && !url.startsWith('http://')) {
+    st.textContent = '⚠ URL must start with rtsp:// or http://'; st.style.color='var(--amber)'; return;
+  }
+
+  const data = await postJSON('/api/cameras/add', { type: 'cctv', label, url });
+  if (data.success) {
+    toast(`✅ ${label} added!`, 'success');
+    setTimeout(() => location.reload(), 600);
+  } else {
+    st.textContent = '⚠ ' + (data.error || 'Failed'); st.style.color='var(--red)';
+  }
+}
+
+// ── Detect webcams ─────────────────────────────────────────────────
+async function detectWebcams() {
+  toast('Scanning for webcams…', 'info', 2000);
+  const data = await postJSON('/api/cameras/detect', {});
+  toast(`Found ${data.found.length} webcam(s), added ${data.added} new.`,
+        data.found.length ? 'success' : 'warn');
+  setTimeout(() => location.reload(), 800);
+}
+
+// ── Preview ───────────────────────────────────────────────────────
+async function startPreview() {
+  stopPreview();
+  const src = document.getElementById('test-src').value.trim();
+  if (!src) { toast('Enter a source first.', 'warn'); return; }
+
+  const isRtsp = src.startsWith('rtsp://') || src.startsWith('http://');
+  const status = document.getElementById('preview-status');
+  const placeholder = document.getElementById('preview-placeholder');
+  placeholder.style.display = 'none';
+
+  testedCam = isRtsp
+    ? { type: 'cctv', url: src, label: 'Test: ' + src.slice(0,30) }
+    : { type: 'webcam', index: parseInt(src,10)||0, label: `Webcam ${src}` };
+
+  if (!isRtsp) {
+    // Browser webcam preview
+    try {
+      const constraints = { video: { deviceId: parseInt(src)===0 ? undefined : src }, audio: false };
+      previewStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+      const vid = document.getElementById('preview-video');
+      vid.srcObject = previewStream;
+      vid.style.display = 'block';
+      document.getElementById('preview-wrapper').classList.add('live');
+      status.textContent = '✅ Webcam connected!'; status.style.color = 'var(--green)';
+      document.getElementById('preview-start-btn').disabled = true;
+      document.getElementById('preview-stop-btn').disabled  = false;
+      document.getElementById('use-tested-btn').disabled    = false;
+    } catch(e) {
+      status.textContent = '❌ ' + e.message; status.style.color='var(--red)';
+      placeholder.style.display = 'flex';
+    }
+  } else {
+    // CCTV: use server-side MJPEG test endpoint
+    status.textContent = '⏳ Connecting to CCTV…'; status.style.color='var(--amber)';
+    const data = await postJSON('/api/cameras/test', testedCam);
+    if (data.success) {
+      const img = document.getElementById('preview-cctv');
+      img.src = '/api/stream/cctv?t=' + Date.now();
+      img.style.display = 'block';
+      document.getElementById('preview-wrapper').classList.add('live');
+      status.textContent = '✅ CCTV stream connected!'; status.style.color='var(--green)';
+      document.getElementById('preview-start-btn').disabled = true;
+      document.getElementById('preview-stop-btn').disabled  = false;
+      document.getElementById('use-tested-btn').disabled    = false;
+    } else {
+      status.textContent = '❌ ' + data.message; status.style.color='var(--red)';
+      placeholder.style.display = 'flex';
+    }
+  }
+}
+
+function stopPreview() {
+  if (previewStream) { previewStream.getTracks().forEach(t=>t.stop()); previewStream=null; }
+  const vid = document.getElementById('preview-video');
+  vid.srcObject = null; vid.style.display='none';
+  const img = document.getElementById('preview-cctv');
+  img.src=''; img.style.display='none';
+  document.getElementById('preview-wrapper').classList.remove('live');
+  document.getElementById('preview-placeholder').style.display='flex';
+  document.getElementById('preview-start-btn').disabled=false;
+  document.getElementById('preview-stop-btn').disabled=true;
+  document.getElementById('use-tested-btn').disabled=true;
+  document.getElementById('preview-status').textContent='';
+}
+
+async function useTestedCam() {
+  if (!testedCam) return;
+  await setActive(testedCam);
+}
+</script>
+{% endblock %}
