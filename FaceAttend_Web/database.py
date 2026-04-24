@@ -10,7 +10,7 @@ from psycopg2.extras import RealDictCursor
 from datetime import date, datetime
 
 # ── Connection ─────────────────────────────────────────────────────
-DATABASE_URL = "postgresql://postgresql_cn6z_user:n7pt3bNZ2R9BdAOudlEtRYtxtRwxQhdh@dpg-d7lm0vu8bjmc73afagng-a.ohio-postgres.render.com/postgresql_cn6z"
+DATABASE_URL = os.getenv("DATABASE_URL")
 
 def _conn():
     return psycopg2.connect(DATABASE_URL, sslmode='require')
