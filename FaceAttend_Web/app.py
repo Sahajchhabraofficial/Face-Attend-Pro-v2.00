@@ -29,14 +29,14 @@ _lock    = threading.Lock()
 try:
     sdb = StudentDB()
     adb = AttendanceDB()
-    sdb.total()   # quick test query
-    print("\u2705  MySQL connected successfully.")
+    sdb.total()
+    print("✅ MySQL connected successfully.")
 except Exception as e:
-    print(f"\n\u274c  MySQL connection failed: {e}")
-    print("    1. Make sure MySQL is running")
-    print("    2. Run:  mysql -u root -p < setup_db.sql")
-    print("    3. Edit config.py with your credentials\n")
-    sys.exit(1)
+    print(f"⚠️ MySQL connection failed: {e}")
+    
+    # DON'T exit — just keep app running
+    sdb = None
+    adb = None
 
 
 # ════════════════════════════════════════════════════════════════════
@@ -94,6 +94,8 @@ def cctv_stream_generator():
 # ════════════════════════════════════════════════════════════════════
 @app.route("/")
 def dashboard():
+    if not sdb or not adb:
+        return "Database not connected"
     total   = sdb.total()
     present = adb.today_count()
     absent  = max(total - present, 0)
