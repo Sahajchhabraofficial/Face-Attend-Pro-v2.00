@@ -14,3 +14,6 @@ Pillow>=10.0.0
 
 # Numerical
 numpy>=1.24.0
+
+# For production deployment
+gunicorn>=20.1.0
