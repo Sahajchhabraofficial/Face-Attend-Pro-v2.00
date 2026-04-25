@@ -20,21 +20,24 @@ from camera_manager  import CameraManager
 import sys
 
 # ── App setup ────────────────────────────────────────────────────────
-app      = Flask(__name__)
-engine   = FaceEngine()
-cam_mgr  = CameraManager()
-_lock    = threading.Lock()
+app     = Flask(__name__)
+engine  = FaceEngine()
+cam_mgr = CameraManager()
+_lock   = threading.Lock()
 
-# ── Verify MySQL connection on startup ───────────────────────────────
+# ── Database startup ─────────────────────────────────────────────────
+db_url = os.environ.get("DATABASE_URL", "")
+print(f"DEBUG: DATABASE_URL found = {bool(db_url)}")
+print(f"DEBUG: URL starts with = {db_url[:20] if db_url else 'EMPTY'}")
+
 try:
+    from database import init_db, StudentDB, AttendanceDB
     sdb = StudentDB()
     adb = AttendanceDB()
-    sdb.total()
-    print("✅ MySQL connected successfully.")
+    init_db()
+    print("✅ PostgreSQL connected & tables ready.")
 except Exception as e:
     print(f"⚠️ Database connection failed: {e}")
-    
-    # DON'T exit — just keep app running
     sdb = None
     adb = None
 
