@@ -94,8 +94,8 @@ def cctv_stream_generator():
 # ════════════════════════════════════════════════════════════════════
 @app.route("/")
 def dashboard():
-    # if not sdb or not adb:
-    #     return "Database not connected"
+    if not sdb or not adb:
+        return "Database not connected"
     total   = sdb.total()
     present = adb.today_count()
     absent  = max(total - present, 0)
