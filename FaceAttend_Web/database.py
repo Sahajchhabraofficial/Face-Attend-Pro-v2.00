@@ -1,37 +1,123 @@
 """
-database.py — PostgreSQL Backend  |  FaceAttend Pro
+database.py — PostgreSQL Backend | FaceAttend Pro v3.0
+Works locally AND on Render.com
 
-Works with Render PostgreSQL using DATABASE_URL
+Uses psycopg2 with connection pooling.
+Tables are auto-created on first run.
 """
 
-import os
 import psycopg2
-from psycopg2.extras import RealDictCursor
+import psycopg2.pool
+import psycopg2.extras
 from datetime import date, datetime
+from config import DATABASE_URL, LOCAL_DB, POOL_SIZE
 
-# ── Connection ─────────────────────────────────────────────────────
-DATABASE_URL = os.getenv("DATABASE_URL")
+# ════════════════════════════════════════════════════════════════════
+#  CONNECTION POOL
+# ════════════════════════════════════════════════════════════════════
+_pool = None
+
+def _get_pool():
+    global _pool
+    if _pool is None:
+        if DATABASE_URL:
+            # Render — use the DATABASE_URL directly
+            _pool = psycopg2.pool.ThreadedConnectionPool(
+                1, POOL_SIZE,
+                dsn=DATABASE_URL,
+                sslmode="require"
+            )
+        else:
+            # Local fallback
+            _pool = psycopg2.pool.ThreadedConnectionPool(
+                1, POOL_SIZE,
+                host=LOCAL_DB["host"],
+                port=LOCAL_DB["port"],
+                user=LOCAL_DB["user"],
+                password=LOCAL_DB["password"],
+                dbname=LOCAL_DB["database"]
+            )
+    return _pool
+
 
 def _conn():
-    return psycopg2.connect(DATABASE_URL, sslmode='require')
+    return _get_pool().getconn()
+
+
+def _put(con):
+    _get_pool().putconn(con)
 
 
 def _exec(sql, params=(), fetch="none"):
+    """
+    Execute SQL safely.
+    fetch = 'one'  -> single dict or None
+    fetch = 'all'  -> list of dicts
+    fetch = 'none' -> rowcount
+    """
     con = _conn()
-    cur = con.cursor(cursor_factory=RealDictCursor)
     try:
-        cur.execute(sql, params)
-
-        if fetch == "one":
-            return cur.fetchone()
-        if fetch == "all":
-            return cur.fetchall()
-
-        con.commit()
-        return True
+        with con.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute(sql, params)
+            if fetch == "one":
+                return cur.fetchone()
+            if fetch == "all":
+                return cur.fetchall()
+            con.commit()
+            return cur.rowcount
+    except Exception:
+        con.rollback()
+        raise
     finally:
-        cur.close()
-        con.close()
+        _put(con)
+
+
+# ════════════════════════════════════════════════════════════════════
+#  AUTO CREATE TABLES (runs on first startup)
+# ════════════════════════════════════════════════════════════════════
+def init_db():
+    """Create tables if they don't exist. Called once on app start."""
+    con = _conn()
+    try:
+        with con.cursor() as cur:
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS students (
+                    id         INTEGER      NOT NULL,
+                    name       VARCHAR(120) NOT NULL,
+                    roll       VARCHAR(30)  NOT NULL UNIQUE,
+                    registered TIMESTAMP    NOT NULL DEFAULT NOW(),
+                    PRIMARY KEY (id)
+                )
+            """)
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS attendance (
+                    id         SERIAL       PRIMARY KEY,
+                    student_id INTEGER      NOT NULL,
+                    name       VARCHAR(120) NOT NULL,
+                    time       TIME         NOT NULL,
+                    date       DATE         NOT NULL,
+                    created_at TIMESTAMP    NOT NULL DEFAULT NOW(),
+                    UNIQUE (student_id, date),
+                    FOREIGN KEY (student_id)
+                        REFERENCES students(id) ON DELETE CASCADE
+                )
+            """)
+            cur.execute("""
+                CREATE INDEX IF NOT EXISTS idx_att_date
+                ON attendance (date)
+            """)
+            cur.execute("""
+                CREATE INDEX IF NOT EXISTS idx_att_student
+                ON attendance (student_id)
+            """)
+        con.commit()
+        print("✅  Tables ready.")
+    except Exception as e:
+        con.rollback()
+        print(f"❌  Table creation failed: {e}")
+        raise
+    finally:
+        _put(con)
 
 
 # ════════════════════════════════════════════════════════════════════
@@ -47,7 +133,10 @@ class StudentDB:
         )
 
     def get_students(self):
-        rows = _exec("SELECT * FROM students ORDER BY id", fetch="all")
+        rows = _exec(
+            "SELECT * FROM students ORDER BY id",
+            fetch="all"
+        )
         return {
             str(r["id"]): {
                 "name":       r["name"],
@@ -81,12 +170,17 @@ class StudentDB:
         return row is not None
 
     def next_id(self):
-        row = _exec("SELECT MAX(id) AS max_id FROM students", fetch="one")
-        max_id = row["max_id"] if row and row["max_id"] is not None else 0
-        return max_id + 1
+        row = _exec(
+            "SELECT COALESCE(MAX(id), 0) AS max_id FROM students",
+            fetch="one"
+        )
+        return (row["max_id"] if row else 0) + 1
 
     def total(self):
-        row = _exec("SELECT COUNT(*) AS cnt FROM students", fetch="one")
+        row = _exec(
+            "SELECT COUNT(*) AS cnt FROM students",
+            fetch="one"
+        )
         return row["cnt"] if row else 0
 
 
@@ -97,31 +191,33 @@ class AttendanceDB:
 
     def mark(self, student_id, name):
         """
-        Mark attendance once per day (PostgreSQL version)
+        Mark attendance for today.
+        Returns True if newly marked, False if already marked.
+        INSERT ... ON CONFLICT DO NOTHING handles duplicates cleanly.
         """
         today = date.today()
         now   = datetime.now().strftime("%H:%M:%S")
-
         try:
             con = _conn()
-            cur = con.cursor()
-
-            cur.execute(
-                "INSERT INTO attendance (student_id, name, time, date) "
-                "VALUES (%s, %s, %s, %s) "
-                "ON CONFLICT (student_id, date) DO NOTHING",
-                (student_id, name, now, today)
-            )
-
-            affected = cur.rowcount
-            con.commit()
-
-            cur.close()
-            con.close()
-
-            return affected > 0
-        except Exception as e:
-            print("DB Error:", e)
+            try:
+                with con.cursor() as cur:
+                    cur.execute(
+                        """
+                        INSERT INTO attendance (student_id, name, time, date)
+                        VALUES (%s, %s, %s, %s)
+                        ON CONFLICT (student_id, date) DO NOTHING
+                        """,
+                        (student_id, name, now, today)
+                    )
+                    affected = cur.rowcount
+                con.commit()
+                return affected > 0
+            except Exception:
+                con.rollback()
+                return False
+            finally:
+                _put(con)
+        except Exception:
             return False
 
     def get_today(self):
@@ -130,17 +226,18 @@ class AttendanceDB:
     def get_by_date(self, date_str):
         rows = _exec(
             "SELECT student_id, name, time, date "
-            "FROM attendance WHERE date = %s ORDER BY time",
+            "FROM attendance WHERE date = %s "
+            "ORDER BY time",
             (date_str,), fetch="all"
         )
         result = []
         for r in (rows or []):
-            result.append([
-                str(r["student_id"]),
-                r["name"],
-                str(r["time"]),
-                str(r["date"])
-            ])
+            # Format time and date as clean strings
+            t = r["time"]
+            time_str = t.strftime("%H:%M:%S") if hasattr(t, "strftime") else str(t)
+            d = r["date"]
+            date_out = d.isoformat() if hasattr(d, "isoformat") else str(d)
+            result.append([str(r["student_id"]), r["name"], time_str, date_out])
         return result
 
     def get_all_dates(self):
@@ -148,7 +245,11 @@ class AttendanceDB:
             "SELECT DISTINCT date FROM attendance ORDER BY date DESC",
             fetch="all"
         )
-        return [str(r["date"]) for r in (rows or [])]
+        result = []
+        for r in (rows or []):
+            d = r["date"]
+            result.append(d.isoformat() if hasattr(d, "isoformat") else str(d))
+        return result
 
     def already_marked(self, student_id):
         row = _exec(
