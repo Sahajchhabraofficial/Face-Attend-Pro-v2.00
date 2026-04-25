@@ -10,7 +10,7 @@ import psycopg2
 import psycopg2.pool
 import psycopg2.extras
 from datetime import date, datetime
-from config import DATABASE_URL, LOCAL_DB, POOL_SIZE
+from config import DATABASE_URL, POOL_SIZE
 
 # ════════════════════════════════════════════════════════════════════
 #  CONNECTION POOL
@@ -26,16 +26,6 @@ def _get_pool():
                 1, POOL_SIZE,
                 dsn=DATABASE_URL,
                 sslmode="require"
-            )
-        else:
-            # Local fallback
-            _pool = psycopg2.pool.ThreadedConnectionPool(
-                1, POOL_SIZE,
-                host=LOCAL_DB["host"],
-                port=LOCAL_DB["port"],
-                user=LOCAL_DB["user"],
-                password=LOCAL_DB["password"],
-                dbname=LOCAL_DB["database"]
             )
     return _pool
 
